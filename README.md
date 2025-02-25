@@ -7,7 +7,7 @@ Add charges, move them around, and see their equipotential surfaces change!
    - Unoptimised
   
 2. Vectors Remastered
-   - The vectors are now elongated according to their field
+   - The vectors are now elongated and thickened according to their field
 
 3. Vectors Optimised
    - Not optimised
