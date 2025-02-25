@@ -131,9 +131,32 @@ while running:
                     # Assuming the lattice points to have a unit disctance of 10 pixels
                     # and the charges to be 1 unit
                     
-                    Fmax=9*(10**8)/200
+                    Fmax=10**5
                     
-                    length=15
+                    length=Fijm/Fmax
+                    if 5000 <= length < 10**5:
+                        length = 40
+                        
+                    elif 100 <= length < 5000:
+                        length = 30
+                        
+                    elif 1 <= length < 100:
+                        length = 20
+                        
+                    elif 10**(-2) <= length < 1:
+                        length = 13
+                        
+                    elif (1/5)*10**(3) <= length < 10**(-2):
+                        length = 6
+                        
+                    elif 10**(-5) < length < (1/5)*10**(3):
+                        length = 3
+                        
+                    else:
+                        if length >= 10**5:
+                               length = 45
+                        elif length <= 10**(-5):
+                               length = 0
                     start=[i,j]
                     end=[i+length*unit[0], j+length*unit[1]]
                     
