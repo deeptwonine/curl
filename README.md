@@ -9,4 +9,5 @@ Add charges, move them around, and see their equipotential surfaces change!
 2. Vectors Remastered
    - The vectors are now elongated according to their field
 
-3. 
+3. Electric Field Optimised
+   - Not optimised
