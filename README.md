@@ -1,4 +1,5 @@
-# Electric Field Visualiser
+# Curl
+## A simple electric field visualiser
 
 Add charges, move them around, and see the electric field and equipotential surfaces change!
 
