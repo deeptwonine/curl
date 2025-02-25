@@ -1,32 +1,36 @@
-# Electric Field Visualiser
+# electric field visualiser
 
 import pygame
 
-def pot(Qm, Qp, P):
+# take magnitude (Qm) and position (Qp) of a charge, and returns
+# potential at point P
+def pot(Q_mag, Q_pos, P):
     k = 9*(10**9)
-    r = [P[0]-Qp[0], P[1]-Qp[1]]
+    r = [P[0]-Q_pos[0], P[1]-Q_pos[1]]
     r_mag = (r[0]**2 + r[1]**2)**(1/2)
     if r_mag == 0:
         return 0
     else:
-        return int(k*Qm/r_mag)
+        return int(k*Q_mag/r_mag)
 
-pygame.init()
-
-width, height = 1400, 1000
-
-screen = pygame.display.set_mode([width, height], pygame.SCALED|pygame.RESIZABLE)
-pygame.display.set_caption("Electric Field Visualiser")
-
-timer = pygame.time.Clock()
-frame_rate = 30
-
-charge_btn_width = 60
-charge_btn_height = 50
-
+# take magnitude (Qm) and position (Qp) of a charge, and finds
+# electric field at point P as [field_magnitude, field_direction],
+# where field_direction is a unit vector
+def f(Q_mag,Q_pos,P):
+    k=9*(10**9)
+    r=[P[0]-Q_pos[0],P[1]-Q_pos[1]]
+    r_mag = (r[0]**2 + r[1]**2)**(1/2)
+    if r_mag == 0:
+        return [0,[0,0]]
+    else: 
+        field_mag = k*Q_mag/(r_mag**2)
+        field_dir=[r[0]/(r_mag),r[1]/(r_mag)]
+        return [field_mag, field_dir]
+    
 # colors
 black = (0, 0, 0)
 grey = (45, 45, 45)
+light_grey = (120, 120, 120)
 white = (255, 255, 255)
 cream = (255, 168, 153)
 light_red = (245, 99, 73)
@@ -37,82 +41,154 @@ gradient_4 = (255, 127, 0)
 gradient_5 = (255, 255, 0)
 gradient_6 = (255, 255, 255)
 
+# constants
+width, height = 1400, 1000
+charge_btn_width = 150
+charge_btn_height = 70
+
+# initiate pygame and set up the display, timer, frame_rate, font
+pygame.init()
+screen = pygame.display.set_mode([width, height], pygame.SCALED|pygame.RESIZABLE)
+pygame.display.set_caption("Electric Field Visualiser")
+timer = pygame.time.Clock()
+frame_rate = 24
+font = pygame.font.SysFont(None, 18)
+
 # resources
 plus_q = pygame.image.load('images/+.png').convert_alpha()
 minus_q = pygame.image.load('images/-.png').convert_alpha()
 
+# takes a surface, a piece of text, a color, and blits the given
+# text in given colour onto given surface
+def write_text(surface, text, color, x, y):
+	screen_text = font.render(text, True, color)
+	surface.blit(screen_text, [x, y])
+	return screen_text
+
+# global program variables
 charge_list = []
+selected_charge = None
+right_click_charge = None
+delete_text = None
+rename_text = None
+new_name = None
+rename_btn = None
 
 running = True
 
-selected_charge = None
-
+# game execution loop starts
 while running:
+    
+    # setup timer, screen and some screen elements
     timer.tick(frame_rate)
     screen.fill(grey)
+    plus_btn = pygame.draw.rect(screen, light_grey, [5, 5, charge_btn_width, charge_btn_height])
+    minus_btn = pygame.draw.rect(screen, light_grey, [5, 80, charge_btn_width, charge_btn_height])
     screen.blit(plus_q, [5 + charge_btn_width/2 - plus_q.get_width()/2, 5 + charge_btn_height/2 - plus_q.get_height()/2])
-    screen.blit(minus_q, [5 + charge_btn_width/2 - minus_q.get_width()/2, 60 + charge_btn_height/2 - minus_q.get_height()/2])
-    plus_btn = pygame.draw.rect(screen, white, [5, 5, charge_btn_width, charge_btn_height], 5)
-    minus_btn = pygame.draw.rect(screen, white, [5, 60, charge_btn_width, charge_btn_height], 5)
-    play_space = pygame.draw.rect(screen, white, [70, 5, width-75, height-10], 5)
+    screen.blit(minus_q, [5 + charge_btn_width/2 - minus_q.get_width()/2, 80 + charge_btn_height/2 - minus_q.get_height()/2])
+    play_rect = pygame.draw.rect(screen, grey, [charge_btn_width+25, 20, width-charge_btn_width-30, height-20])
+    charge_list_surface = pygame.surface.Surface((charge_btn_width, 10+5*(len(charge_list)-1)+39*len(charge_list)))
     
+    # handle mouse and keyboard events
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False   
         if event.type == pygame.MOUSEBUTTONUP:
-            if plus_btn.collidepoint(event.pos):
-                charge_list.append([1, 70+play_space.width/2, 5+play_space.height/2])
-            elif minus_btn.collidepoint(event.pos):
-                charge_list.append([-1, 70+play_space.width/2, 5+play_space.height/2])
-            else:
+            if plus_btn.collidepoint(event.pos): # check if plus_btn is clicked
+                charge_list.append([1, charge_btn_width+10+int(play_rect.width/2), 5+play_rect.height/2, "Charge"+str(len(charge_list)+1)])
+            elif minus_btn.collidepoint(event.pos): # check if minus_btn is clicked
+                charge_list.append([-1, charge_btn_width+10+int(play_rect.width/2), 5+play_rect.height/2, "Charge"+str(len(charge_list)+1)])
+            elif delete_text and right_click_charge and delete_text.collidepoint(event.pos): # check if delete button is clicked
+                charge_list.remove(right_click_charge)
+                right_click_charge = None
+            elif rename_text and right_click_charge and rename_text.collidepoint(event.pos): # check if rename button is clicked
+                new_name = ""
+                rename_text = None
+            elif rename_btn and right_click_charge and new_name != None and rename_btn.collidepoint(event.pos): # check if rename button is clicked after renaming
+                right_click_charge[3] = new_name
+                right_click_charge = None
+                new_name = None
+            else: # check if a selected charge is released
                 if selected_charge:
                     selected_charge = None
-        if event.type == pygame.MOUSEBUTTONDOWN:
+            
+            if event.button == 3: # check if there has been a right click
+                for charge in charge_list[::-1]:
+                    if pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
+                        right_click_charge = charge
+                        break
+        if event.type == pygame.MOUSEBUTTONDOWN: # check if a charge is selected
             for charge in charge_list[::-1]:
                 if pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
                     selected_charge = charge
                     break
+        if event.type == pygame.KEYDOWN: # hand;e charge name typing
+            if new_name != None:
+                if event.key == pygame.K_BACKSPACE and len(new_name)>0:
+                    new_name = new_name[:-1]
+                elif event.key == pygame.K_RETURN:
+                    right_click_charge[3] = new_name
+                    right_click_charge = None
+                    new_name = None
+                else:
+                    new_name += event.unicode
     
-    if selected_charge:
-        charge_move_area = pygame.Rect(play_space.left+21, play_space.top+21, play_space.width-42, play_space.height-42)
-        if charge_move_area.collidepoint(pygame.mouse.get_pos()):
-            selected_charge[1] = pygame.mouse.get_pos()[0]
-            selected_charge[2] = pygame.mouse.get_pos()[1]
-        else:
-            selected_charge = None
+    # list charges on charge_list_surface
+    for i in range(len(charge_list)):
+        charge = charge_list[i]
+        write_text(charge_list_surface, "Q = "+str(charge[0])+" ("+charge[3]+")", cream, 5, i*39 + 5*(i+1))
+        write_text(charge_list_surface, str(charge[1:3]), white, 5, i*39 + 5*(i+1) + 21)
     
+    # make list of all lattice point positions
+    positions = []
+    for x in range(play_rect.left, play_rect.right-4, 20):
+        for y in range(play_rect.top, play_rect.bottom-4, 20):
+            positions.append([x,y])
+    
+    # make list of potentials at all positions        
     potentials = []
-    positions = [] # corresponding positions
-    for x in range(play_space.left+5, play_space.right-4, 10):
-        for y in range(play_space.top+5, play_space.bottom-4, 10):
-            potential_parts = []
-            for charge in charge_list:
-                potential_parts.append(pot(charge[0], charge[1:3], [x, y]))
-            potentials.append(sum(potential_parts))
-            positions.append([x, y])
+    for position in positions:
+        potential_parts = []
+        for charge in charge_list:
+            potential_parts.append(pot(charge[0], charge[1:3], position))
+        potentials.append(sum(potential_parts))
     
+    # make list of fields at all positions
+    fields = []
+    for position in positions:
+        field_parts = []
+        for charge in charge_list:
+            field_parts.append(f(charge[0], charge[1:3], position))
+        temp_field = [0, 0]
+        for part in field_parts:
+            temp_field[0] += part[0]*part[1][0]
+            temp_field[1] += part[0]*part[1][1]
+        field_mag = (temp_field[0]**2 + temp_field[1]**2)**(1/2)
+        if field_mag == 0:
+            field_dir = [0, 0]
+        else:
+            field_dir = field_dir = [temp_field[0]/field_mag, temp_field[1]/field_mag]
+        fields.append([field_mag, field_dir])
+    
+    # plot electric field arrows
     pot_max = 9*10**9
     pot_min = -9*10**9
-    for i in range(len(potentials)):
+    for i in range(len(potentials)): 
         potential = potentials[i]
+        
+        # set arrow colour as per potential gradient
         if potential in range(pot_min, -4*10**9):
             r,g,b = gradient_1
-            
         elif potential in range(-4*10**8, -9*10**7):
             r,g,b = gradient_2
-            
         elif potential in range(-9*10**7, 0):
             r,g,b = gradient_3
-            
         elif potential in range(0, 9*10**7):
             r,g,b = gradient_4
-            
         elif potential in range(9*10**7, 4*10**8):
             r,g,b = gradient_5
-            
         elif potential in range(4*10**8, pot_max):
             r,g,b = gradient_6
-            
         else:
             if potential >= pot_max:
                     r = 255
@@ -122,14 +198,99 @@ while running:
                     r = 0
                     g = 0
                     b = 0
-        pygame.draw.rect(screen, (r, g, b), [positions[i][0]-5, positions[i][1]-5, 5, 5])
+                    
+        field_max = 10**5         
+        field_mag = fields[i][0]
+        field_dir = fields[i][1]
+        length = field_mag/field_max
+        
+        # set arrow length as per strength
+        if 5000 <= length < 10**4:
+            length = 40
+            w=3
+        elif 100 <= length < 5000:
+            length = 30
+            w=3
+        elif 1 <= length < 100:
+            length = 20
+            w=2
+        elif 10**(-2) <= length < 1:
+            length = 13
+            w=2
+        elif (1/5)*10**(-3) <= length < 10**(-2):
+            length = 6
+            w=1
+        elif 10**(-4) < length < (1/5)*10**(-3):
+            length = 3
+            w=1
+        else:
+            if length >= 10**4:
+                length = 45 
+                w=4
+            elif length <= 10**(-4):
+                length = 0 
+                w=0
                 
+        # figure out direction of arrow        
+        if field_mag == 0:
+            end_point = positions[i]
+        else:
+            end_x = positions[i][0] + length*field_dir[0]
+            end_y = positions[i][1] + length*field_dir[1]
+            end_point = [end_x, end_y]
+        
+        # plot electric field arrow
+        pygame.draw.line(screen, (r, g, b), positions[i], end_point, width=w)
+        triangle=[end_point, [end_point[0]+4*(field_dir[1]-field_dir[0]), end_point[1]+4*(-field_dir[1]-field_dir[0])], [end_point[0]+4*(-field_dir[1]-field_dir[0]), end_point[1]+4*(-field_dir[1]+field_dir[0])]]
+        pygame.draw.polygon(screen, (r,g,b), triangle)
+    
+    # handle drag and drop of selected charge
+    if selected_charge:
+        charge_move_area = pygame.Rect(play_rect.left, play_rect.top, play_rect.width, play_rect.height)
+        if charge_move_area.collidepoint(pygame.mouse.get_pos()):
+            selected_charge[1] = pygame.mouse.get_pos()[0]
+            selected_charge[2] = pygame.mouse.get_pos()[1]
+        else:
+            selected_charge = None
+    
+    # display charges in charge_list            
     for charge in charge_list:
         if charge[0] == 1:
             screen.blit(plus_q, [charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2])
         elif charge[0] == -1:
             screen.blit(minus_q, [charge[1]-minus_q.get_width()/2, charge[2]-minus_q.get_height()/2])
     
+    # handle charge details display on hover
+    for charge in charge_list[::-1]:
+        if charge != right_click_charge and pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(pygame.mouse.get_pos()):
+            coords_surface = pygame.surface.Surface((120, 51))
+            write_text(coords_surface, "Q = "+str(charge[0])+" ("+charge[3]+")", light_red, 5, 5)
+            write_text(coords_surface, str(charge[1:3]), white, 5, 28)
+            screen.blit(coords_surface, [charge[1]-plus_q.get_width()/2-120, charge[2]-plus_q.get_height()/2])
+    
+    # show menu on right clicking charge
+    if right_click_charge:
+        right_click_surface = pygame.surface.Surface((70, 51))
+        write_text(right_click_surface, "Delete", light_red, 5, 5)
+        write_text(right_click_surface, "Rename", white, 5, 28)
+        delete_text = pygame.Rect(right_click_charge[1]-plus_q.get_width()/2-80, right_click_charge[2]-plus_q.get_height()/2, 80, 25)
+        rename_text = pygame.Rect(right_click_charge[1]-plus_q.get_width()/2-80, right_click_charge[2]-plus_q.get_height()/2+20, 80, 26)
+        screen.blit(right_click_surface, [right_click_charge[1]-plus_q.get_width()/2-70, right_click_charge[2]-plus_q.get_height()/2])
+    
+    # handle renaming a charge
+    if new_name != None:
+        rename_surface = pygame.surface.Surface((120, 51))
+        type_surface = pygame.surface.Surface((110, 22))
+        type_surface.fill(white)
+        new_name_text = write_text(type_surface, new_name, black, 2, 2)
+        write_text(rename_surface, "Rename", white, 5, 28)
+        rename_btn = pygame.Rect(right_click_charge[1]-plus_q.get_width()/2-120, right_click_charge[2]-plus_q.get_height()/2+28, 120, 23)
+        rename_surface.blit(type_surface, [5, 5])
+        screen.blit(rename_surface, [right_click_charge[1]-plus_q.get_width()/2-120, right_click_charge[2]-plus_q.get_height()/2])
+    
+    # blit stuff to the screen and flip it
+    screen.blit(charge_list_surface, [5, 155])
     pygame.display.flip()
 
+# quit when out of game execution loop
 pygame.quit()
