@@ -131,18 +131,49 @@ while running:
                     # Assuming the lattice points to have a unit disctance of 10 pixels
                     # and the charges to be 1 unit
                     
-                    Fmax=9*(10**8)/200
+                    Fmax=10**5
                     
-                    length=15
+                    length=Fijm/Fmax
+                    if 5000 <= length < 10**5:
+                        length = 40 
+                        w=3
+                        
+                    elif 100 <= length < 5000:
+                        length = 30 
+                        w=3
+                        
+                    elif 1 <= length < 100:
+                        length = 20 
+                        w=2
+                        
+                    elif 10**(-2) <= length < 1:
+                        length = 13 
+                        w=2
+                        
+                    elif (1/5)*10**(3) <= length < 10**(-2):
+                        length = 6 
+                        w=1
+                        
+                    elif 10**(-5) < length < (1/5)*10**(3):
+                        length = 3 
+                        w=1
+                        
+                    else:
+                        if length >= 10**5:
+                               length = 45 
+                               w=4
+                        elif length <= 10**(-5):
+                               length = 0 
+                               w=0
                     start=[i,j]
                     end=[i+length*unit[0], j+length*unit[1]]
                     
                     Output.append([start,end])
         
                                        
-                    pygame.draw.line(screen, (51, 119, 255), [i,j], Output[count][1], width=2)
+                    pygame.draw.line(screen, (247, 64, 64), [i,j], Output[count][1], width=w)
                     triangle=[Output[count][1], [Output[count][1][0]+3*(unit[1]-unit[0]),Output[count][1][1]+3*(-unit[1]-unit[0])], [Output[count][1][0]+3*(-unit[1]-unit[0]),Output[count][1][1]+3*(-unit[1]+unit[0])]]
-                    pygame.draw.polygon(screen, (51, 119, 255), triangle)
+                    pygame.draw.polygon(screen, (247, 64, 64), triangle)
                     count+=1
                 
     for charge in charge_list:
