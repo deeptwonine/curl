@@ -1,7 +1,12 @@
+![Curl](https://raw.githubusercontent.com/deeptwonine/electric-field-visualiser/refs/heads/main/images/icon.png)
 # Curl
 ## A simple electric field visualiser
 
 Add charges, move them around, and see the electric field and equipotential surfaces change!
+
+![Demo](https://raw.githubusercontent.com/deeptwonine/electric-field-visualiser/refs/heads/main/images/demo.gif)
+
+
 
 ### Using the program
 1. To begin with, make sure you have [Python](https://www.python.org/downloads/) and [pygame](http://www.pygame.org/downloads.shtml) installed.
