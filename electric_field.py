@@ -34,12 +34,23 @@ light_grey = (120, 120, 120)
 white = (255, 255, 255)
 cream = (255, 168, 153)
 light_red = (245, 99, 73)
-gradient_1 = (0, 0, 0)
-gradient_2 = (127, 0, 0)
-gradient_3 = (255, 0, 0)
-gradient_4 = (255, 127, 0)
-gradient_5 = (255, 255, 0)
-gradient_6 = (255, 255, 255)
+# gradient_1 = (0, 0, 0)
+# gradient_2 = (127, 0, 0)
+# gradient_3 = (255, 0, 0)
+# gradient_4 = (255, 127, 0)
+# gradient_5 = (255, 255, 0)
+# gradient_6 = (255, 255, 255)
+gradient_6 = (245, 66, 66)
+gradient_55 = (245, 120, 66)
+gradient_5 = (245, 194, 66)
+gradient_45 = (225, 225, 66)
+gradient_4 = (194, 245, 66)
+gradient_35 = (120, 245, 120)
+gradient_3 = (66, 245, 194)
+gradient_25 = (66, 225, 225)
+gradient_2 = (66, 194, 245)
+gradient_15 = (66, 120, 245)
+gradient_1 = (66, 66, 245)
 
 # constants
 width, height = 1400, 1000
@@ -50,13 +61,16 @@ charge_btn_height = 70
 pygame.init()
 screen = pygame.display.set_mode([width, height], pygame.SCALED|pygame.RESIZABLE)
 pygame.display.set_caption("Electric Field Visualiser")
+
 timer = pygame.time.Clock()
-frame_rate = 24
+frame_rate = 50
 font = pygame.font.SysFont(None, 20)
 
 # resources
 plus_q = pygame.image.load('images/+.png').convert_alpha()
 minus_q = pygame.image.load('images/-.png').convert_alpha()
+icon = pygame.image.load('images/icon.png').convert_alpha()
+pygame.display.set_icon(icon)
 
 # takes a surface, a piece of text, a color, and blits the given
 # text in given colour onto given surface
@@ -189,19 +203,28 @@ while running:
     pot_min = -9*10**9
     for i in range(len(positions)): 
         potential = potentials[i]
-        
         # set arrow colour as per potential gradient
-        if potential in range(pot_min, -4*10**9):
+        if potential in range(pot_min, -8*10**7):
             r,g,b = gradient_1
-        elif potential in range(-4*10**8, -9*10**7):
+        elif potential in range(-8*10**7, -4*10**7):
+            r,g,b = gradient_15   
+        elif potential in range(-4*10**7, -4*10**6):
             r,g,b = gradient_2
-        elif potential in range(-9*10**7, 0):
+        elif potential in range(-4*10**6, -9*10**5):
+            r,g,b = gradient_25
+        elif potential in range(-9*10**5, -8*10**5):
             r,g,b = gradient_3
-        elif potential in range(0, 9*10**7):
+        elif potential in range(-8*10**5, 8*10**5):
+            r,g,b = gradient_35
+        elif potential in range(8*10**5, 9*10**5):
             r,g,b = gradient_4
-        elif potential in range(9*10**7, 4*10**8):
+        elif potential in range(9*10**5, 4*10**6):
+            r,g,b = gradient_45
+        elif potential in range(4*10**6, 4*10**7):
             r,g,b = gradient_5
-        elif potential in range(4*10**8, pot_max+1):
+        elif potential in range(4*10**7, 8*10**7):
+            r,g,b = gradient_55
+        elif potential in range(8*10**7, pot_max):
             r,g,b = gradient_6
         else:
             if potential >= pot_max:
@@ -212,46 +235,64 @@ while running:
         field_max = 10**5         
         field_mag = fields[i][0]
         field_dir = fields[i][1]
-        length = field_mag/field_max
+        length = abs(field_mag)/field_max
         
         # set arrow length as per strength
-        if 5000 <= length < 10**4:
+        if 7500 <= length < 10**4:
             length = 40
             w=3
-        elif 100 <= length < 5000:
+        elif 5000 <= length < 7500:
+            length = 35
+            w=3
+        elif 1000 <= length < 5000:
             length = 30
             w=3
-        elif 1 <= length < 100:
+        elif 100 <= length < 1000:
+            length = 25
+            w=3
+        elif 10 <= length < 100:
             length = 20
             w=2
-        elif 10**(-2) <= length < 1:
+        elif 10**(-1) <= length < 10:
+            length = 17
+            w=2
+        elif 10**(-2) <= length < 10**(-1):
             length = 13
             w=2
-        elif (1/5)*10**(-3) <= length < 10**(-2):
+        elif 10**(-3) <= length < 10**(-2):
+            length = 10
+            w=1
+        elif (1/5)*10**(-3) <= length < 10**(-3):
             length = 6
             w=1
-        elif 10**(-4) < length < (1/5)*10**(-3):
-            length = 3
+        elif (1/75)*10**(-2) <= length < (1/5)*10**(-3):
+            length = 4
+            w=1
+        elif 10**(-4) <= length < (1/75)*10**(-2):
+            length = 2
             w=1
         else:
             if length >= 10**4:
                 length = 45 
                 w=4
-            elif length <= 10**(-4):
+            elif length < 10**(-4):
                 length = 0 
                 w=0
                 
-        # figure out direction of arrow        
+        # figure out direction of arrow
+        start_x = positions[i][0] - (length/2)*field_dir[0]
+        start_y = positions[i][1] - (length/2)*field_dir[1]
+        start_point = [start_x, start_y]
         if field_mag == 0:
             end_point = positions[i]
         else:
-            end_x = positions[i][0] + length*field_dir[0]
-            end_y = positions[i][1] + length*field_dir[1]
+            end_x = positions[i][0] + (length/2)*field_dir[0]
+            end_y = positions[i][1] + (length/2)*field_dir[1]
             end_point = [end_x, end_y]
         
         # plot electric field arrow
-        pygame.draw.line(screen, (r, g, b), positions[i], end_point, width=w)
-        triangle=[end_point, [end_point[0]+4*(field_dir[1]-field_dir[0]), end_point[1]+4*(-field_dir[1]-field_dir[0])], [end_point[0]+4*(-field_dir[1]-field_dir[0]), end_point[1]+4*(-field_dir[1]+field_dir[0])]]
+        pygame.draw.line(screen, (r,g,b), start_point, end_point, width=w)
+        triangle=[end_point, [end_point[0]+(w+1)*(field_dir[1]-field_dir[0]), end_point[1]+(w+1)*(-field_dir[1]-field_dir[0])], [end_point[0]+(w+1)*(-field_dir[1]-field_dir[0]), end_point[1]+(w+1)*(-field_dir[1]+field_dir[0])]]
         pygame.draw.polygon(screen, (r,g,b), triangle)
     
     # handle drag and drop of selected charge
