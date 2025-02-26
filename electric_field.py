@@ -60,7 +60,7 @@ charge_btn_height = 70
 # initiate pygame and set up the display, timer, frame_rate, font
 pygame.init()
 screen = pygame.display.set_mode([width, height], pygame.SCALED|pygame.RESIZABLE)
-pygame.display.set_caption("Electric Field Visualiser")
+pygame.display.set_caption("Curl")
 
 timer = pygame.time.Clock()
 frame_rate = 50
@@ -153,7 +153,7 @@ while running:
     # list charges on charge_list_surface
     for i in range(len(charge_list)):
         charge = charge_list[i]
-        write_text(charge_list_surface, "Q = "+str(charge[0])+" ("+charge[3]+")", cream, 5, i*39 + 5*(i+1))
+        write_text(charge_list_surface, "Q = "+str(charge[0])+" C ("+charge[3]+")", cream, 5, i*39 + 5*(i+1))
         write_text(charge_list_surface, str(charge[1:3]), white, 5, i*39 + 5*(i+1) + 21)
     screen.blit(charge_list_surface, [5, 155])
     
@@ -311,13 +311,24 @@ while running:
         elif charge[0] == -1:
             screen.blit(minus_q, [charge[1]-minus_q.get_width()/2, charge[2]-minus_q.get_height()/2])
     
-    # handle charge details display on hover
+    # display charge details on hover
     for charge in charge_list[::-1]:
         if charge != right_click_charge and pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(pygame.mouse.get_pos()):
-            coords_surface = pygame.surface.Surface((120, 51))
-            write_text(coords_surface, "Q = "+str(charge[0])+" ("+charge[3]+")", light_red, 5, 5)
-            write_text(coords_surface, str(charge[1:3]), white, 5, 28)
+            coords_surface = pygame.surface.Surface((120, 28))
+            write_text(coords_surface, "Q = "+str(charge[0])+" C ("+charge[3]+")", light_red, 5, 5)
             screen.blit(coords_surface, [charge[1]-plus_q.get_width()/2-120, charge[2]-plus_q.get_height()/2])
+    
+    # display potential and field value at each position
+    for i in range(len(positions)):
+        position = positions[i]
+        if pygame.Rect(position[0]-10, position[1]-10, 20, 20).collidepoint(pygame.mouse.get_pos()):
+            pot_field_surface = pygame.surface.Surface((300, 74))
+            potential = "{:e}".format(potentials[i]) + " V"
+            field = "{:e}".format(fields[i][0]) + " V/m"
+            write_text(pot_field_surface, str(position), white, 5, 5)
+            write_text(pot_field_surface, "Potential (V) = "+potential, light_red, 5, 28)
+            write_text(pot_field_surface, "Field (E) = "+field, light_red, 5, 51)
+            screen.blit(pot_field_surface, [position[0]-plus_q.get_width()/2-120, position[1]-plus_q.get_height()/2+30])
     
     # show menu on right clicking charge
     if right_click_charge:
