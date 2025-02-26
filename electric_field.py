@@ -52,7 +52,7 @@ screen = pygame.display.set_mode([width, height], pygame.SCALED|pygame.RESIZABLE
 pygame.display.set_caption("Electric Field Visualiser")
 timer = pygame.time.Clock()
 frame_rate = 24
-font = pygame.font.SysFont(None, 18)
+font = pygame.font.SysFont(None, 20)
 
 # resources
 plus_q = pygame.image.load('images/+.png').convert_alpha()
@@ -67,6 +67,9 @@ def write_text(surface, text, color, x, y):
 
 # global program variables
 charge_list = []
+positions = []
+potentials = []
+fields = []
 selected_charge = None
 right_click_charge = None
 delete_text = None
@@ -122,7 +125,7 @@ while running:
                 if pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
                     selected_charge = charge
                     break
-        if event.type == pygame.KEYDOWN: # hand;e charge name typing
+        if event.type == pygame.KEYDOWN: # handle charge name typing
             if new_name != None:
                 if event.key == pygame.K_BACKSPACE and len(new_name)>0:
                     new_name = new_name[:-1]
@@ -138,24 +141,35 @@ while running:
         charge = charge_list[i]
         write_text(charge_list_surface, "Q = "+str(charge[0])+" ("+charge[3]+")", cream, 5, i*39 + 5*(i+1))
         write_text(charge_list_surface, str(charge[1:3]), white, 5, i*39 + 5*(i+1) + 21)
+    screen.blit(charge_list_surface, [5, 155])
     
     # make list of all lattice point positions
-    positions = []
-    for x in range(play_rect.left, play_rect.right-4, 20):
-        for y in range(play_rect.top, play_rect.bottom-4, 20):
-            positions.append([x,y])
+    if not positions:
+        for x in range(play_rect.left, play_rect.right-4, 20):
+            for y in range(play_rect.top, play_rect.bottom-4, 20):
+                positions.append([x,y])
     
-    # make list of potentials at all positions        
-    potentials = []
-    for position in positions:
+    # create a dummy potentials list to begin with
+    if not potentials:
+        for position in positions:
+            potentials.append(0)
+            
+    # make list of potentials at all positions
+    for i in range(len(positions)):
+        position = positions[i]
         potential_parts = []
         for charge in charge_list:
             potential_parts.append(pot(charge[0], charge[1:3], position))
-        potentials.append(sum(potential_parts))
+        potentials[i] = sum(potential_parts)
+        
+    # create a dummy fields list to begin with
+    if not fields:
+        for position in positions:
+            fields.append([0, [0, 0]])    
     
     # make list of fields at all positions
-    fields = []
-    for position in positions:
+    for i in range(len(positions)):
+        position = positions[i]
         field_parts = []
         for charge in charge_list:
             field_parts.append(f(charge[0], charge[1:3], position))
@@ -168,12 +182,12 @@ while running:
             field_dir = [0, 0]
         else:
             field_dir = field_dir = [temp_field[0]/field_mag, temp_field[1]/field_mag]
-        fields.append([field_mag, field_dir])
+        fields[i] = [field_mag, field_dir]
     
     # plot electric field arrows
     pot_max = 9*10**9
     pot_min = -9*10**9
-    for i in range(len(potentials)): 
+    for i in range(len(positions)): 
         potential = potentials[i]
         
         # set arrow colour as per potential gradient
@@ -187,17 +201,13 @@ while running:
             r,g,b = gradient_4
         elif potential in range(9*10**7, 4*10**8):
             r,g,b = gradient_5
-        elif potential in range(4*10**8, pot_max):
+        elif potential in range(4*10**8, pot_max+1):
             r,g,b = gradient_6
         else:
             if potential >= pot_max:
-                    r = 255
-                    g = 255
-                    b = 255
+                    r,g,b = gradient_6
             elif potential <= pot_min:
-                    r = 0
-                    g = 0
-                    b = 0
+                    r,g,b = gradient_1
                     
         field_max = 10**5         
         field_mag = fields[i][0]
@@ -289,7 +299,6 @@ while running:
         screen.blit(rename_surface, [right_click_charge[1]-plus_q.get_width()/2-120, right_click_charge[2]-plus_q.get_height()/2])
     
     # blit stuff to the screen and flip it
-    screen.blit(charge_list_surface, [5, 155])
     pygame.display.flip()
 
 # quit when out of game execution loop
