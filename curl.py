@@ -18,7 +18,7 @@ FPS = 50
 pygame.init()
 screen = pygame.display.set_mode([WIDTH, HEIGHT], pygame.SCALED|pygame.RESIZABLE)
 timer = pygame.time.Clock()
-font = pygame.font.Font("font/Ubuntu-Bold.ttf", TEXT_SIZE)
+font = pygame.font.Font("font/PixelifySans-SemiBold.ttf", TEXT_SIZE)
 
 # get resources
 plus_q = pygame.image.load('images/plus.png').convert_alpha()
@@ -26,9 +26,11 @@ minus_q = pygame.image.load('images/minus.png').convert_alpha()
 plus_btn_up = pygame.image.load('images/plus_btn_up.png').convert_alpha()
 minus_btn_up = pygame.image.load('images/minus_btn_up.png').convert_alpha()
 custom_btn_up = pygame.image.load('images/custom_btn_up.png').convert_alpha()
+discrete_mode_btn_up = pygame.image.load('images/discrete_mode_btn_up.png').convert_alpha()
 plus_btn_down = pygame.image.load('images/plus_btn_down.png').convert_alpha()
 minus_btn_down = pygame.image.load('images/minus_btn_down.png').convert_alpha()
 custom_btn_down = pygame.image.load('images/custom_btn_down.png').convert_alpha()
+discrete_mode_btn_down = pygame.image.load('images/discrete_mode_btn_down.png').convert_alpha()
 icon = pygame.image.load('images/icon.png').convert_alpha()
 
 # set up display nuances
