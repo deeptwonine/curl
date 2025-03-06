@@ -7,7 +7,7 @@ from colors import *
 # constants
 PROG_NAME = "Curl"
 WIDTH, HEIGHT = 1345, 890
-PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT = 1180, 880
+PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT = 1160, 860
 charge_btn_width = 150
 charge_btn_height = 70
 mode_btn_height = 50
@@ -27,10 +27,13 @@ plus_btn_up = pygame.image.load('images/plus_btn_up.png').convert_alpha()
 minus_btn_up = pygame.image.load('images/minus_btn_up.png').convert_alpha()
 custom_btn_up = pygame.image.load('images/custom_btn_up.png').convert_alpha()
 discrete_mode_btn_up = pygame.image.load('images/discrete_mode_btn_up.png').convert_alpha()
+cont_mode_btn_up = pygame.image.load('images/cont_mode_btn_up.png').convert_alpha()
 plus_btn_down = pygame.image.load('images/plus_btn_down.png').convert_alpha()
 minus_btn_down = pygame.image.load('images/minus_btn_down.png').convert_alpha()
 custom_btn_down = pygame.image.load('images/custom_btn_down.png').convert_alpha()
 discrete_mode_btn_down = pygame.image.load('images/discrete_mode_btn_down.png').convert_alpha()
+cont_mode_btn_down = pygame.image.load('images/cont_mode_btn_down.png').convert_alpha()
+play_surf_frame = pygame.image.load('images/play_surf_frame.png').convert_alpha()
 icon = pygame.image.load('images/icon.png').convert_alpha()
 
 # set up display nuances
@@ -248,7 +251,7 @@ while running:
         minus_btn_rect = minus_btn_up.get_rect(left=5, top=80)
         screen.blit(minus_btn_up, (5, 80))
     else:
-        minus_btn_rect = minus_btn_down.get_rect(left=5, top=80)
+        minus_btn_rect = minus_btn_down.get_rect(left=5, top=86)
         screen.blit(minus_btn_down, (5, 86))
         
     if not is_custom_btn_pressed:
@@ -257,18 +260,26 @@ while running:
     else:
         custom_btn_rect = custom_btn_down.get_rect(left=5, top=161)
         screen.blit(custom_btn_down, (5, 161))
-        
-    mode_btn = pygame.draw.rect(screen, light_grey, [5, HEIGHT-5-mode_btn_height, charge_btn_width, mode_btn_height])
-    play_surface = pygame.surface.Surface((PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT))
-    play_surface.fill(dark_lavender)
-    play_rect = play_surface.get_rect(left=160, top=5)
     
     if is_continuous_mode:
-        screen.blit(write_text("CONTINUOUS FIELD", white), (mode_btn.left+4, mode_btn.top+3))
-        screen.blit(write_text("LINES MODE", white), (mode_btn.left+27, mode_btn.top+27))
+        if not is_mode_btn_pressed:
+            mode_btn_rect = cont_mode_btn_up.get_rect(left=5, top=815)
+            screen.blit(cont_mode_btn_up, (5, 815))
+        else:
+            mode_btn_rect = cont_mode_btn_down.get_rect(left=5, top=821)
+            screen.blit(cont_mode_btn_down, (5, 821))
     else:
-        screen.blit(write_text("DISCRETE FIELD", white), (mode_btn.left+16, mode_btn.top+3))
-        screen.blit(write_text("ARROWS MODE", white), (mode_btn.left+18, mode_btn.top+27))
+        if not is_mode_btn_pressed:
+            mode_btn_rect = discrete_mode_btn_up.get_rect(left=5, top=815)
+            screen.blit(discrete_mode_btn_up, (5, 815))
+        else:
+            mode_btn_rect = discrete_mode_btn_down.get_rect(left=5, top=821)
+            screen.blit(discrete_mode_btn_down, (5, 821))
+    
+    screen.blit(play_surf_frame, (160, 5))
+    play_surface = pygame.surface.Surface((PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT))
+    play_surface.fill(dark_lavender)
+    play_rect = play_surface.get_rect(left=168, top=13)
     
     # handle mouse and keyboard events
     for event in pygame.event.get():
@@ -278,6 +289,7 @@ while running:
             is_plus_btn_pressed = False
             is_minus_btn_pressed = False
             is_custom_btn_pressed = False
+            is_mode_btn_pressed = False
             
             if plus_btn_rect.collidepoint(event.pos) and charge_name == None: # check if plus_btn is clicked
                 charge_list.append([1, PLAY_SURF_WIDTH/2, PLAY_SURF_HEIGHT/2, "Charge"+str(len(charge_list)+1)])
@@ -319,7 +331,7 @@ while running:
                 charge_add_selected = "mag"
             elif type_pos_rect and charge_name != None and type_pos_rect.collidepoint(event.pos):
                 charge_add_selected = "pos"
-            elif mode_btn.collidepoint(event.pos):
+            elif mode_btn_rect.collidepoint(event.pos):
                 is_continuous_mode = not is_continuous_mode
             else: # check if a selected charge is released
                 if selected_charge:
@@ -340,9 +352,11 @@ while running:
                 is_minus_btn_pressed = True
             if custom_btn_rect.collidepoint(event.pos):
                 is_custom_btn_pressed = True
+            if mode_btn_rect.collidepoint(event.pos):
+                is_mode_btn_pressed = True
             
             for charge in charge_list[::-1]:
-                if pygame.Rect(160+charge[1]-plus_q.get_width()/2, 5+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
+                if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
                     selected_charge = charge
                     break
         if event.type == pygame.KEYDOWN: # handle charge name typing
@@ -454,8 +468,8 @@ while running:
     if selected_charge:
         charge_move_area = pygame.Rect(play_rect.left, play_rect.top, PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT)
         if charge_move_area.collidepoint(pygame.mouse.get_pos()):
-            selected_charge[1] = pygame.mouse.get_pos()[0]-160
-            selected_charge[2] = pygame.mouse.get_pos()[1]-5
+            selected_charge[1] = pygame.mouse.get_pos()[0]-168
+            selected_charge[2] = pygame.mouse.get_pos()[1]-13
         else:
             selected_charge = None
     
@@ -526,7 +540,7 @@ while running:
         screen.blit(rename_surface, [right_click_charge[1]-plus_q.get_width()/2-120, right_click_charge[2]-plus_q.get_height()/2])
     
     # blit stuff to the screen and flip it
-    screen.blit(play_surface, (160, 5))
+    screen.blit(play_surface, (168, 13))
     pygame.display.flip()
 
 # quit when out of game execution loop
