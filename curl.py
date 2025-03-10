@@ -1,24 +1,26 @@
 # curl.py - a simple electric field visualiser
 
 import pygame
-from math import pi, sin, cos
+import copy
+from math import pi, sin, cos, fabs
 from colors import *
+from electrostatics import *
 
 # constants
 PROG_NAME = "Curl"
-WIDTH, HEIGHT = 1345, 890
-PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT = 1160, 860
+WIDTH, HEIGHT = 1185, 630
+PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT = 1000, 600
 charge_btn_width = 150
 charge_btn_height = 70
 mode_btn_height = 50
-TEXT_SIZE = 15
-FPS = 50
+TEXT_SIZE = 20
+FPS = 30
 
 # initiate pygame and set up the display, timer, font
 pygame.init()
-screen = pygame.display.set_mode([WIDTH, HEIGHT], pygame.SCALED|pygame.RESIZABLE)
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED|pygame.RESIZABLE)
 timer = pygame.time.Clock()
-font = pygame.font.Font("font/PixelifySans-SemiBold.ttf", TEXT_SIZE)
+font = pygame.font.Font('font/Doto-Black.ttf', TEXT_SIZE)
 
 # get resources
 plus_q = pygame.image.load('images/plus.png').convert_alpha()
@@ -34,55 +36,22 @@ custom_btn_down = pygame.image.load('images/custom_btn_down.png').convert_alpha(
 discrete_mode_btn_down = pygame.image.load('images/discrete_mode_btn_down.png').convert_alpha()
 cont_mode_btn_down = pygame.image.load('images/cont_mode_btn_down.png').convert_alpha()
 play_surf_frame = pygame.image.load('images/play_surf_frame.png').convert_alpha()
+edit_charge_dialog_img = pygame.image.load('images/edit_charge_dialog.png')
+plus_mag_btn_up = pygame.image.load('images/plus_mag_btn_up.png').convert_alpha()
+minus_mag_btn_up = pygame.image.load('images/minus_mag_btn_up.png').convert_alpha()
+done_btn_up = pygame.image.load('images/done_btn_up.png').convert_alpha()
+plus_mag_btn_down = pygame.image.load('images/plus_mag_btn_down.png').convert_alpha()
+minus_mag_btn_down = pygame.image.load('images/minus_mag_btn_down.png').convert_alpha()
+done_btn_down = pygame.image.load('images/done_btn_down.png').convert_alpha()
 icon = pygame.image.load('images/icon.png').convert_alpha()
 
 # set up display nuances
 pygame.display.set_caption(PROG_NAME)
 pygame.display.set_icon(icon)
 
-# calculates potential at a point P (x, y) 
-# due to charges in charge_list
-def calc_potential(charge_list, P):
-    k = 9*(10**9)
-    potential = 0
-    for charge in charge_list:
-        r = [P[0]-charge[1], P[1]-charge[2]]
-        r_mag = (r[0]**2 + r[1]**2)**(1/2)
-        if r_mag == 0:
-            potential += 0
-        else:
-            potential += int(k*charge[0]/r_mag)
-    return potential
-
-# calculates electric field at a point P (x, y) 
-# due to charges in charge_list
-def calc_field(charge_list, P):
-    k=9*(10**9)
-    field_parts = []
-    for charge in charge_list:
-        r=[P[0]-charge[1],P[1]-charge[2]]
-        r_mag = (r[0]**2 + r[1]**2)**(1/2)
-        if r_mag == 0:
-            field_parts.append([0,[0,0]])
-        else: 
-            field_mag = k*charge[0]/(r_mag**2)
-            field_dir=[r[0]/(r_mag),r[1]/(r_mag)]
-            field_parts.append([field_mag, field_dir])
-    
-    field_components = [0, 0]
-    for part in field_parts:
-        field_components[0] += part[0]*part[1][0]
-        field_components[1] += part[0]*part[1][1]
-    field_mag = (field_components[0]**2 + field_components[1]**2)**(1/2)
-    if field_mag == 0:
-        field_dir = [0, 0]
-    else:
-        field_dir = [field_components[0]/field_mag, field_components[1]/field_mag]
-    return [field_mag, field_dir]
-
 # returns a pygame.surface.Surface with given text
 def write_text(text, color):
-	screen_text = font.render(text, True, color)
+	screen_text = font.render(text, False, color)
 	return screen_text
 
 # takes a surface, potential and field value, and draws an electric field
@@ -210,34 +179,36 @@ def draw_field_arrow(surface, potential, field, centre_arrow=True, start=[-1, -1
 # global program variables
 charge_list = []
 selected_charge = None
+editing_charge = None
 right_click_charge = None
 delete_text = None
 rename_text = None
-new_name = None
-rename_btn = None
-charge_to_add = None
-charge_name = None
-charge_mag_str = None
-charge_pos_str = None
-add_charge_btn = None
-charge_add_selected = None
-type_name_rect = None
-type_mag_rect = None
-type_pos_rect = None
 
 is_plus_btn_pressed = False
 is_minus_btn_pressed = False
 is_custom_btn_pressed = False
 is_mode_btn_pressed = False
+
+is_editing_charge = False
+is_name_field_focused = True
+is_mag_field_focused = False
+is_x_field_focused = False
+is_y_field_focused = False
+is_charge_mag_btn_pressed = False
+is_done_btn_pressed = False
+is_cursor_visible = False
+
 is_continuous_mode = False
 
 running = True
+frame_count = 0
 
 # game execution loop
 while running:
     
     # setup timer, screen and some screen elements
     timer.tick(FPS)
+    frame_count += 1
     screen.fill(lavender)
     
     if not is_plus_btn_pressed:
@@ -263,149 +234,24 @@ while running:
     
     if is_continuous_mode:
         if not is_mode_btn_pressed:
-            mode_btn_rect = cont_mode_btn_up.get_rect(left=5, top=815)
-            screen.blit(cont_mode_btn_up, (5, 815))
+            mode_btn_rect = cont_mode_btn_up.get_rect(left=5, top=555)
+            screen.blit(cont_mode_btn_up, (5, 555))
         else:
-            mode_btn_rect = cont_mode_btn_down.get_rect(left=5, top=821)
-            screen.blit(cont_mode_btn_down, (5, 821))
+            mode_btn_rect = cont_mode_btn_down.get_rect(left=5, top=561)
+            screen.blit(cont_mode_btn_down, (5, 561))
     else:
         if not is_mode_btn_pressed:
-            mode_btn_rect = discrete_mode_btn_up.get_rect(left=5, top=815)
-            screen.blit(discrete_mode_btn_up, (5, 815))
+            mode_btn_rect = discrete_mode_btn_up.get_rect(left=5, top=555)
+            screen.blit(discrete_mode_btn_up, (5, 555))
         else:
-            mode_btn_rect = discrete_mode_btn_down.get_rect(left=5, top=821)
-            screen.blit(discrete_mode_btn_down, (5, 821))
-    
+            mode_btn_rect = discrete_mode_btn_down.get_rect(left=5, top=561)
+            screen.blit(discrete_mode_btn_down, (5, 561))
+
+    # display play space as per selected mode
     screen.blit(play_surf_frame, (160, 5))
     play_surface = pygame.surface.Surface((PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT))
     play_surface.fill(dark_lavender)
     play_rect = play_surface.get_rect(left=168, top=13)
-    
-    # handle mouse and keyboard events
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False   
-        if event.type == pygame.MOUSEBUTTONUP:
-            is_plus_btn_pressed = False
-            is_minus_btn_pressed = False
-            is_custom_btn_pressed = False
-            is_mode_btn_pressed = False
-            
-            if plus_btn_rect.collidepoint(event.pos) and charge_name == None: # check if plus_btn is clicked
-                charge_list.append([1, PLAY_SURF_WIDTH/2, PLAY_SURF_HEIGHT/2, "Charge"+str(len(charge_list)+1)])
-            elif minus_btn_rect.collidepoint(event.pos) and charge_name == None: # check if minus_btn is clicked
-                charge_list.append([-1, PLAY_SURF_WIDTH/2, PLAY_SURF_HEIGHT/2, "Charge"+str(len(charge_list)+1)])
-            elif custom_btn_rect.collidepoint(event.pos):
-                charge_to_add = [1, charge_btn_width+10+int(play_rect.width/2), 5+int(play_rect.height/2), "Charge"+str(len(charge_list)+1)]
-                charge_name = charge_to_add[3]
-                charge_mag_str = str(charge_to_add[0])
-                charge_pos_str = str(charge_to_add[1:3])
-                charge_add_selected = "name"
-            elif delete_text and right_click_charge and delete_text.collidepoint(event.pos): # check if delete button is clicked
-                charge_list.remove(right_click_charge)
-                right_click_charge = None
-            elif rename_text and right_click_charge and rename_text.collidepoint(event.pos): # check if rename button is clicked
-                new_name = right_click_charge[3]
-                rename_text = None
-            elif rename_btn and right_click_charge and new_name != None and rename_btn.collidepoint(event.pos): # check if rename button is clicked after renaming
-                right_click_charge[3] = new_name
-                right_click_charge = None
-                new_name = None
-            elif add_charge_btn and charge_name != None and add_charge_btn.collidepoint(event.pos):
-                charge_to_add[3] = charge_name
-                charge_to_add[0] = float(eval(charge_mag_str))
-                charge_pos = charge_pos_str.lstrip('[').rstrip(']').split(', ')
-                charge_pos = [int(charge_pos[0]), int(charge_pos[1])]
-                charge_to_add[1:3] = charge_pos
-                charge_list.append(charge_to_add)
-                charge_name = None
-                charge_mag = None
-                charge_pos = None
-                charge_to_add = None
-                type_name_rect = None
-                type_mag_rect = None
-                type_pos_rect = None
-            elif type_name_rect and charge_name != None and type_name_rect.collidepoint(event.pos):
-                charge_add_selected = "name"
-            elif type_mag_rect and charge_name != None and type_mag_rect.collidepoint(event.pos):
-                charge_add_selected = "mag"
-            elif type_pos_rect and charge_name != None and type_pos_rect.collidepoint(event.pos):
-                charge_add_selected = "pos"
-            elif mode_btn_rect.collidepoint(event.pos):
-                is_continuous_mode = not is_continuous_mode
-            else: # check if a selected charge is released
-                if selected_charge:
-                    selected_charge = None
-                if right_click_charge:
-                    right_click_charge = None
-                    new_name = None
-            
-            if event.button == 3: # check if there has been a right click
-                for charge in charge_list[::-1]:
-                    if pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
-                        right_click_charge = charge
-                        break
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if plus_btn_rect.collidepoint(event.pos):
-                is_plus_btn_pressed = True
-            if minus_btn_rect.collidepoint(event.pos):
-                is_minus_btn_pressed = True
-            if custom_btn_rect.collidepoint(event.pos):
-                is_custom_btn_pressed = True
-            if mode_btn_rect.collidepoint(event.pos):
-                is_mode_btn_pressed = True
-            
-            for charge in charge_list[::-1]:
-                if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
-                    selected_charge = charge
-                    break
-        if event.type == pygame.KEYDOWN: # handle charge name typing
-            if new_name != None and charge_name == None:
-                if event.key == pygame.K_BACKSPACE and len(new_name)>0:
-                    new_name = new_name[:-1]
-                elif event.key == pygame.K_RETURN:
-                    right_click_charge[3] = new_name
-                    right_click_charge = None
-                    new_name = None
-                else:
-                    new_name += event.unicode
-            if new_name == None and charge_name != None:
-                if event.key == pygame.K_RETURN:
-                    charge_to_add[3] = charge_name
-                    if charge_mag_str == "":
-                        charge_to_add[0] = 0
-                    elif charge_mag_str[-1] == "-":
-                        charge_to_add[0] = -1
-                    else:
-                        charge_to_add[0] = float(eval(charge_mag_str))
-                    charge_pos = charge_pos_str.lstrip('[').rstrip(']').split(', ')
-                    charge_pos = [int(charge_pos[0]), int(charge_pos[1])]
-                    charge_to_add[1:3] = charge_pos
-                    charge_list.append(charge_to_add)
-                    charge_name = None
-                    charge_mag = None
-                    charge_pos = None
-                    charge_to_add = None
-                    type_name_rect = None
-                    type_mag_rect = None
-                    type_pos_rect = None
-                if charge_add_selected == "name":
-                    if event.key == pygame.K_BACKSPACE and len(charge_name)>0:
-                        charge_name = charge_name[:-1]
-                    elif event.key != pygame.K_RETURN:
-                        charge_name += event.unicode
-                elif charge_add_selected == "mag":
-                    if event.key == pygame.K_BACKSPACE and len(charge_mag_str)>0:
-                        charge_mag_str = charge_mag_str[:-1]
-                    elif event.key != pygame.K_RETURN:
-                        charge_mag_str += event.unicode
-                elif charge_add_selected == "pos":
-                    if event.key == pygame.K_BACKSPACE and len(charge_pos_str)>0:
-                        charge_pos_str = charge_pos_str[:-1]
-                    elif event.key != pygame.K_RETURN:
-                        charge_pos_str += event.unicode
-    
-    # display play space as per selected mode
     if is_continuous_mode:
         for i in range(len(charge_list)):
             charge = charge_list[i]
@@ -464,15 +310,6 @@ while running:
             for y in range(10, PLAY_SURF_HEIGHT-10+1, 20):
                 draw_field_arrow(play_surface, calc_potential(charge_list, [x, y]), calc_field(charge_list, [x, y]), False, centre=[x, y])
     
-    # handle drag and drop of selected charge
-    if selected_charge:
-        charge_move_area = pygame.Rect(play_rect.left, play_rect.top, PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT)
-        if charge_move_area.collidepoint(pygame.mouse.get_pos()):
-            selected_charge[1] = pygame.mouse.get_pos()[0]-168
-            selected_charge[2] = pygame.mouse.get_pos()[1]-13
-        else:
-            selected_charge = None
-    
     # display charges in play space from charge_list            
     for charge in charge_list:
         if charge[0] > 0:
@@ -489,35 +326,259 @@ while running:
     
     # display potential and field value at each position
     if play_rect.collidepoint(pygame.mouse.get_pos()):
-        pot_field_surface = pygame.surface.Surface((300, 74))
         potential = "{:e}".format(calc_potential(charge_list, pygame.mouse.get_pos())) + "V"
         field = "{:e}".format(calc_field(charge_list, pygame.mouse.get_pos())[0]) + "V/m"
-        pot_field_surface.blit(write_text(str(pygame.mouse.get_pos()), white), (5, 5))
-        pot_field_surface.blit(write_text("Potential (V) = "+potential, light_red), (5, 28))
-        pot_field_surface.blit(write_text("Field (E) = "+field, light_red), (5, 51))
-        screen.blit(pot_field_surface, [pygame.mouse.get_pos()[0]-plus_q.get_width()/2-120, pygame.mouse.get_pos()[1]-plus_q.get_height()/2+30])
+        pos_text = write_text(str(pygame.mouse.get_pos()), white)
+        potential_text = write_text("Potential(V) = "+potential, light_red)
+        field_text = write_text("Field(E) = "+field, light_red)
+        hover_bg = pygame.surface.Surface((max(pos_text.get_width(), potential_text.get_width(), field_text.get_width()) + 8,
+                                           pos_text.get_height() + potential_text.get_height() + field_text.get_height() + 8))
+        hover_bg.fill(grey)
+        hover_bg.blit(pos_text, (4, 4))
+        hover_bg.blit(potential_text, (4, 4 + pos_text.get_height()))
+        hover_bg.blit(field_text, (4, 4 + pos_text.get_height() + potential_text.get_height()))
+        if hover_bg.get_rect(left=pygame.mouse.get_pos()[0]-168, top=pygame.mouse.get_pos()[1]-13).right > 1000:
+            if hover_bg.get_rect(left=pygame.mouse.get_pos()[0]-168, top=pygame.mouse.get_pos()[1]-13).bottom > 600:
+                play_surface.blit(hover_bg, (pygame.mouse.get_pos()[0]-168-hover_bg.get_width(), pygame.mouse.get_pos()[1]-13-hover_bg.get_height()))
+            else:
+                play_surface.blit(hover_bg, (pygame.mouse.get_pos()[0]-168-hover_bg.get_width(), pygame.mouse.get_pos()[1]-13))
+        elif hover_bg.get_rect(left=pygame.mouse.get_pos()[0]-168, top=pygame.mouse.get_pos()[1]-13).bottom > 600:
+            play_surface.blit(hover_bg, (pygame.mouse.get_pos()[0]-168, pygame.mouse.get_pos()[1]-13-hover_bg.get_height()))
+        else:
+            play_surface.blit(hover_bg, (pygame.mouse.get_pos()[0]-168, pygame.mouse.get_pos()[1]-13))
+
+    screen.blit(play_surface, (168, 13))
     
     # show charge adding dialogue
-    if charge_name != None:
-        charge_adding_surface = pygame.surface.Surface((charge_btn_width, 100))
-        type_surface_name = pygame.surface.Surface((charge_btn_width-10, 22))
-        type_surface_mag = pygame.surface.Surface((charge_btn_width-10, 22))
-        type_surface_pos = pygame.surface.Surface((charge_btn_width-10, 22))
-        type_name_rect = pygame.Rect(12, 205, charge_btn_width-10, 22)
-        type_mag_rect = pygame.Rect(12, 232, charge_btn_width-10, 22)
-        type_pos_rect = pygame.Rect(12, 259, charge_btn_width-10, 22)
-        type_surface_name.fill(white)
-        type_surface_mag.fill(white)
-        type_surface_pos.fill(white)
-        type_surface_name.blit(write_text(charge_name, black), (2, 2))
-        type_surface_mag.blit(write_text(charge_mag_str, black), (2, 2))
-        type_surface_pos.blit(write_text(charge_pos_str, black), (2, 2))
-        charge_adding_surface.blit(write_text("ADD CHARGE", white), (5, 80))
-        add_charge_btn = pygame.Rect(5, 280, charge_btn_width, 23)
-        charge_adding_surface.blit(type_surface_name, [5, 5])
-        charge_adding_surface.blit(type_surface_mag, [5, 32])
-        charge_adding_surface.blit(type_surface_pos, [5, 59])
-        screen.blit(charge_adding_surface, [5, 200])
+    if is_editing_charge:
+        overlay = pygame.Surface((1185, 630))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+
+        edit_charge_dialog = edit_charge_dialog_img.convert_alpha()
+        if not is_charge_mag_btn_pressed:
+            if editing_charge[4] == "+":
+                charge_mag_btn_rect = plus_mag_btn_up.get_rect(left=446, top=309)
+                edit_charge_dialog.blit(plus_mag_btn_up, (13, 137))
+            elif editing_charge[4] == "-":
+                charge_mag_btn_rect = minus_mag_btn_up.get_rect(left=446, top=309)
+                edit_charge_dialog.blit(minus_mag_btn_up, (13, 137))
+        else:
+            if editing_charge[4] == "+":
+                charge_mag_btn_rect = plus_mag_btn_down.get_rect(left=446, top=311)
+                edit_charge_dialog.blit(plus_mag_btn_down, (13, 139))
+            elif editing_charge[4] == "-":
+                charge_mag_btn_rect = minus_mag_btn_down.get_rect(left=446, top=311)
+                edit_charge_dialog.blit(minus_mag_btn_down, (13, 139))
+        
+        if not is_done_btn_pressed:
+            done_btn_rect = done_btn_up.get_rect(left=446, top=412)
+            edit_charge_dialog.blit(done_btn_up, (13, 240))
+        else:
+            done_btn_rect = done_btn_down.get_rect(left=446, top=414)
+            edit_charge_dialog.blit(done_btn_down, (13, 242))
+
+        charge_name_text = write_text(editing_charge[3], black)
+        if editing_charge[0] == "" or editing_charge[0] == ".":
+            charge_mag_text = write_text('0', light_grey)
+        else:
+            charge_mag_text = write_text(editing_charge[0], black)
+        if editing_charge[1] == "":
+            charge_x_text = write_text('0', light_grey)
+        else:
+            charge_x_text = write_text(editing_charge[1], black)   
+        if editing_charge[2] == "":
+            charge_y_text = write_text('0', light_grey)
+        else:
+            charge_y_text = write_text(editing_charge[2], black)
+        edit_charge_dialog.blit(charge_name_text, (20, 75))
+        edit_charge_dialog.blit(charge_mag_text,  (52, 137))
+        edit_charge_dialog.blit(charge_x_text,  (40, 200))
+        edit_charge_dialog.blit(charge_y_text,  (188, 200))
+
+        if frame_count % 15 == 0:
+                is_cursor_visible = not is_cursor_visible
+        
+        if is_name_field_focused and is_cursor_visible:
+            pygame.draw.line(edit_charge_dialog, black, (charge_name_text.get_width()+20, 78), (charge_name_text.get_width()+20, 95))
+        elif is_mag_field_focused and is_cursor_visible:
+            pygame.draw.line(edit_charge_dialog, black, (charge_mag_text.get_width()+52, 140), (charge_mag_text.get_width()+52, 157))
+        elif is_x_field_focused and is_cursor_visible:
+            pygame.draw.line(edit_charge_dialog, black, (charge_x_text.get_width()+40, 203), (charge_x_text.get_width()+40, 220))
+        elif is_y_field_focused and is_cursor_visible:
+            pygame.draw.line(edit_charge_dialog, black, (charge_y_text.get_width()+188, 203), (charge_y_text.get_width()+188, 220))
+        
+        screen.blit(edit_charge_dialog, (433, 172))
+        name_text_rect = pygame.Rect(446, 247, 292, 28)
+        mag_text_rect = pygame.Rect(478, 309, 260, 28)
+        x_text_rect = pygame.Rect(466, 372, 123, 28)
+        y_text_rect = pygame.Rect(614, 372, 123, 28)
+    
+    # handle mouse and keyboard events
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False   
+        if event.type == pygame.MOUSEBUTTONUP:
+            is_plus_btn_pressed = False
+            is_minus_btn_pressed = False
+            is_custom_btn_pressed = False
+            is_mode_btn_pressed = False
+            is_charge_mag_btn_pressed = False
+            is_done_btn_pressed = False
+            
+            if plus_btn_rect.collidepoint(event.pos) and not is_editing_charge:
+                charge_list.append([1, int(PLAY_SURF_WIDTH/2), int(PLAY_SURF_HEIGHT/2), "Charge"+str(len(charge_list)+1)])
+            elif minus_btn_rect.collidepoint(event.pos) and not is_editing_charge:
+                charge_list.append([-1, int(PLAY_SURF_WIDTH/2), int(PLAY_SURF_HEIGHT/2), "Charge"+str(len(charge_list)+1)])
+            elif custom_btn_rect.collidepoint(event.pos) and not is_editing_charge:
+                is_editing_charge = True
+                charge_list.append([1, int(PLAY_SURF_WIDTH/2), int(PLAY_SURF_HEIGHT/2), "Charge"+str(len(charge_list)+1)])
+                editing_charge = [str(fabs(charge_list[-1][0])), str(charge_list[-1][1]), str(charge_list[-1][2]), charge_list[-1][3], "+"]
+            elif delete_text and right_click_charge and delete_text.collidepoint(event.pos):
+                charge_list.remove(right_click_charge)
+                right_click_charge = None
+            elif rename_text and right_click_charge and rename_text.collidepoint(event.pos):
+                new_name = right_click_charge[3]
+                rename_text = None
+            elif is_editing_charge and charge_mag_btn_rect.collidepoint(event.pos):
+                if editing_charge[4] == "+":
+                    editing_charge[4] = "-"
+                elif editing_charge[4] == "-":
+                    editing_charge[4] = "+"
+            elif is_editing_charge and done_btn_rect.collidepoint(event.pos):
+                is_editing_charge = False
+                if (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "+":
+                    editing_charge[0] = 0.0
+                elif (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "-":
+                    editing_charge[0] = -0.0
+                else:
+                    editing_charge[0] = float(editing_charge[4] + editing_charge[0])
+                if editing_charge[1] == "":
+                    editing_charge[1] = 0
+                else:
+                    editing_charge[1] = int(editing_charge[1])
+                if editing_charge[2] == "":
+                    editing_charge[2] = 0
+                else:
+                    editing_charge[2] = int(editing_charge[2])
+                del editing_charge[4]
+                charge_list[-1] = editing_charge
+            elif is_editing_charge and name_text_rect.collidepoint(event.pos):
+                is_name_field_focused = True
+                is_mag_field_focused = False
+                is_x_field_focused = False
+                is_y_field_focused = False
+            elif is_editing_charge and mag_text_rect.collidepoint(event.pos):
+                is_name_field_focused = False
+                is_mag_field_focused = True
+                is_x_field_focused = False
+                is_y_field_focused = False
+            elif is_editing_charge and x_text_rect.collidepoint(event.pos):
+                is_name_field_focused = False
+                is_mag_field_focused = False
+                is_x_field_focused = True
+                is_y_field_focused = False
+            elif is_editing_charge and y_text_rect.collidepoint(event.pos):
+                is_name_field_focused = False
+                is_mag_field_focused = False
+                is_x_field_focused = False
+                is_y_field_focused = True
+            elif mode_btn_rect.collidepoint(event.pos) and not is_editing_charge:
+                is_continuous_mode = not is_continuous_mode
+            elif not is_editing_charge: # check if a selected charge is released
+                if selected_charge:
+                    selected_charge = None
+                if right_click_charge:
+                    right_click_charge = None
+                    new_name = None
+            
+            if event.button == 3: # check if there has been a right click
+                for charge in charge_list[::-1]:
+                    if pygame.Rect(charge[1]-plus_q.get_width()/2, charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
+                        right_click_charge = charge
+                        break
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if plus_btn_rect.collidepoint(event.pos):
+                is_plus_btn_pressed = True
+            if minus_btn_rect.collidepoint(event.pos):
+                is_minus_btn_pressed = True
+            if custom_btn_rect.collidepoint(event.pos):
+                is_custom_btn_pressed = True
+            if mode_btn_rect.collidepoint(event.pos):
+                is_mode_btn_pressed = True
+            if is_editing_charge and charge_mag_btn_rect.collidepoint(event.pos):
+                is_charge_mag_btn_pressed = True
+            if is_editing_charge and done_btn_rect.collidepoint(event.pos):
+                is_done_btn_pressed = True
+            
+            for charge in charge_list[::-1]:
+                if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
+                    selected_charge = charge
+                    break
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                is_editing_charge = False
+                if (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "+":
+                    editing_charge[0] = 0.0
+                elif (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "-":
+                    editing_charge[0] = -0.0
+                else:
+                    editing_charge[0] = float(editing_charge[4] + editing_charge[0])
+                if editing_charge[1] == "":
+                    editing_charge[1] = 0
+                else:
+                    editing_charge[1] = int(editing_charge[1])
+                if editing_charge[2] == "":
+                    editing_charge[2] = 0
+                else:
+                    editing_charge[2] = int(editing_charge[2])
+                del editing_charge[4]
+                charge_list[-1] = editing_charge
+            
+            if is_editing_charge and is_name_field_focused:
+                charge_name = editing_charge[3]
+                if event.key == pygame.K_BACKSPACE and len(charge_name)>0:
+                    charge_name = charge_name[:-1]
+                elif event.key != pygame.K_BACKSPACE and len(charge_name)<10: 
+                    charge_name += event.unicode
+                editing_charge[3] = charge_name
+            elif is_editing_charge and is_mag_field_focused:
+                allowed_chars = (pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
+                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_PERIOD)
+                charge_mag_str = editing_charge[0]
+                if event.key == pygame.K_BACKSPACE and len(charge_mag_str)>0:
+                    charge_mag_str = charge_mag_str[:-1]
+                elif event.key in allowed_chars:
+                    charge_mag_str += event.unicode
+                editing_charge[0] = charge_mag_str
+            elif is_editing_charge and is_x_field_focused:
+                charge_x_str = editing_charge[1]
+                allowed_chars = (pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
+                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9)
+                if event.key == pygame.K_BACKSPACE and len(charge_x_str)>0:
+                    charge_x_str = charge_x_str[:-1]
+                elif event.key in allowed_chars and int(charge_x_str + event.unicode) <= 1000:
+                    charge_x_str += event.unicode
+                editing_charge[1] = charge_x_str
+            elif is_editing_charge and is_y_field_focused:
+                charge_y_str = editing_charge[2]
+                allowed_chars = (pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
+                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9)
+                if event.key == pygame.K_BACKSPACE and len(charge_y_str)>0:
+                    charge_y_str = charge_y_str[:-1]
+                elif event.key in allowed_chars and int(charge_y_str + event.unicode) <= 600:
+                    charge_y_str += event.unicode
+                editing_charge[2] = charge_y_str
+    
+    # handle drag and drop of selected charge
+    if selected_charge:
+        charge_move_area = pygame.Rect(play_rect.left, play_rect.top, PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT)
+        if charge_move_area.collidepoint(pygame.mouse.get_pos()):
+            selected_charge[1] = pygame.mouse.get_pos()[0]-168
+            selected_charge[2] = pygame.mouse.get_pos()[1]-13
+        else:
+            selected_charge = None
     
     # show menu on right clicking charge
     if right_click_charge:
@@ -528,19 +589,7 @@ while running:
         rename_text = pygame.Rect(right_click_charge[1]-plus_q.get_width()/2-80, right_click_charge[2]-plus_q.get_height()/2+20, 80, 26)
         screen.blit(right_click_surface, [right_click_charge[1]-plus_q.get_width()/2-70, right_click_charge[2]-plus_q.get_height()/2])
     
-    # handle renaming a charge
-    if new_name != None:
-        rename_surface = pygame.surface.Surface((120, 51))
-        type_surface = pygame.surface.Surface((110, 22))
-        type_surface.fill(white)
-        type_surface.blit(write_text(new_name, black), (2, 2))
-        rename_surface.blit(write_text("Rename", white), (5, 28))
-        rename_btn = pygame.Rect(right_click_charge[1]-plus_q.get_width()/2-120, right_click_charge[2]-plus_q.get_height()/2+28, 120, 23)
-        rename_surface.blit(type_surface, [5, 5])
-        screen.blit(rename_surface, [right_click_charge[1]-plus_q.get_width()/2-120, right_click_charge[2]-plus_q.get_height()/2])
-    
-    # blit stuff to the screen and flip it
-    screen.blit(play_surface, (168, 13))
+    # blit stuff to the screen and flip it #5;5,28,51
     pygame.display.flip()
 
 # quit when out of game execution loop
