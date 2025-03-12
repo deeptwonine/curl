@@ -9,10 +9,8 @@ from electrostatics import *
 PROG_NAME = "Curl"
 WIDTH, HEIGHT = 1185, 630
 PLAY_SURF_WIDTH, PLAY_SURF_HEIGHT = 1000, 600
-CHARGE_LIST_SURF_WIDTH, CHARGE_LIST_SURF_HEIGHT = 130, 300
-charge_btn_width = 150
-charge_btn_height = 70
-mode_btn_height = 50
+CHARGE_LIST_SURF_WIDTH, CHARGE_LIST_SURF_HEIGHT = 130, 270
+CHARGE_LIST_TEXT_SIZE = 17
 TEXT_SIZE = 20
 FPS = 30
 
@@ -204,6 +202,7 @@ is_continuous_mode = False
 
 running = True
 frame_count = 0
+scroll_pos = 0
 
 # game execution loop
 while running:
@@ -252,8 +251,31 @@ while running:
     # display list of charges
     screen.blit(charge_list_frame, (5, 230))
     charge_list_surface = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, CHARGE_LIST_SURF_HEIGHT))
-    charge_list_surface.fill(periwinkle)
-    screen.blit(charge_list_surface, (13, 238))
+    charge_list_surface.fill(prussian_blue)
+    charge_list_rect = charge_list_surface.get_rect(left=13, top=268)
+    charge_details_surf_height = 0
+    charge_details_surf_list = []
+    for charge in charge_list:
+        name_text = write_text("\""+charge[3]+"\"", white)
+        charge_pos_text = write_text(str(tuple(charge[1:3])), white)
+        mag_text = write_text("Q = "+"{:.2e}".format(charge[0])+"C", light_red)
+        name_text = pygame.transform.scale(name_text, (name_text.get_width()*(CHARGE_LIST_TEXT_SIZE/name_text.get_height()), CHARGE_LIST_TEXT_SIZE))
+        charge_pos_text = pygame.transform.scale(charge_pos_text, (charge_pos_text.get_width()*(CHARGE_LIST_TEXT_SIZE/charge_pos_text.get_height()), CHARGE_LIST_TEXT_SIZE))
+        mag_text = pygame.transform.scale(mag_text, (mag_text.get_width()*(CHARGE_LIST_TEXT_SIZE/mag_text.get_height()), CHARGE_LIST_TEXT_SIZE))
+        charge_details_surf = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + 5))
+        charge_details_surf.fill(prussian_blue)
+        charge_details_surf.blit(name_text, (0, 0))
+        charge_details_surf.blit(charge_pos_text, (0, name_text.get_height()))
+        charge_details_surf.blit(mag_text, (0, charge_pos_text.get_height() + name_text.get_height()))
+        charge_details_surf_list.append(charge_details_surf)
+        charge_details_surf_height += charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + 5
+    charge_details_surface = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, charge_details_surf_height))
+    height_blitted = 0
+    for charge_details_surf in charge_details_surf_list: 
+        charge_details_surface.blit(charge_details_surf, (0, height_blitted))
+        height_blitted += charge_details_surf.get_height()
+    charge_list_surface.blit(charge_details_surface, (0, scroll_pos))
+    screen.blit(charge_list_surface, (13, 268))
 
     # display play space as per selected mode
     screen.blit(play_surf_frame, (160, 5))
@@ -326,36 +348,34 @@ while running:
     
     # display potential and field value at each position
     if play_rect.collidepoint(pygame.mouse.get_pos()) and right_click_charge_index == None and not is_editing_charge:
-
-        charge_pos_text = None; name_text = None; mag_text = None
+        name_pos_text = None; name_text = None; mag_text = None
         for charge in charge_list[::-1]:
-            if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
-                charge_pos_text = write_text("Charge at "+str(tuple(charge[1:3])), white)
-                name_text = write_text("Charge name: "+charge[3], white)
-                mag_text = write_text("Magnitude(Q) = "+str(charge[0]), light_red)
+            if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(pygame.mouse.get_pos()):
+                name_pos_text = write_text("\""+charge[3]+"\" at "+str(tuple(charge[1:3])), white)
+                mag_text = write_text("Charge(Q) = "+"{:.2e}".format(charge[0])+"C", light_red)
+                break
         play_surf_pos = (pygame.mouse.get_pos()[0]-168, pygame.mouse.get_pos()[1]-13)
-        potential = "{:e}".format(calc_potential(charge_list, play_surf_pos)) + "V"
-        field = "{:e}".format(calc_field(charge_list, play_surf_pos)[0]) + "V/m"
+        potential = "{:.3e}".format(calc_potential(charge_list, play_surf_pos)) + "V"
+        field = "{:.3e}".format(calc_field(charge_list, play_surf_pos)[0]) + "V/m"
         pos_text = write_text("Cursor at "+str(play_surf_pos), white)
         potential_text = write_text("Potential(V) = "+potential, light_red)
         field_text = write_text("Field(E) = "+field, light_red)
 
-        if charge_pos_text:
-            hover_bg_size = (max(charge_pos_text.get_width(), name_text.get_width(), mag_text.get_width(), pos_text.get_width(), potential_text.get_width(), field_text.get_width()) + 8,
-                                           charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + pos_text.get_height() + potential_text.get_height() + field_text.get_height() + 8)
+        if name_pos_text:
+            hover_bg_size = (max(name_pos_text.get_width(), mag_text.get_width(), pos_text.get_width(), potential_text.get_width(), field_text.get_width()) + 8,
+                                           name_pos_text.get_height() + mag_text.get_height() + pos_text.get_height() + potential_text.get_height() + field_text.get_height() + 8)
         else:
             hover_bg_size = (max(pos_text.get_width(), potential_text.get_width(), field_text.get_width()) + 8,
                                            pos_text.get_height() + potential_text.get_height() + field_text.get_height() + 8)
 
         hover_bg = pygame.surface.Surface(hover_bg_size)
         hover_bg.fill(grey)
-        if charge_pos_text:
-            hover_bg.blit(charge_pos_text, (4, 4))
-            hover_bg.blit(name_text, (4, 4 + charge_pos_text.get_height()))
-            hover_bg.blit(mag_text, (4, 4 + charge_pos_text.get_height() + name_text.get_height()))
-            hover_bg.blit(pos_text, (4, 4 + charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height()))
-            hover_bg.blit(potential_text, (4, 4 + charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + pos_text.get_height()))
-            hover_bg.blit(field_text, (4, 4 + charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + pos_text.get_height() + potential_text.get_height()))
+        if name_pos_text:
+            hover_bg.blit(name_pos_text, (4, 4))
+            hover_bg.blit(mag_text, (4, 4 + name_pos_text.get_height()))
+            hover_bg.blit(pos_text, (4, 4 + name_pos_text.get_height() + mag_text.get_height()))
+            hover_bg.blit(potential_text, (4, 4 + name_pos_text.get_height() + mag_text.get_height() + pos_text.get_height()))
+            hover_bg.blit(field_text, (4, 4 + name_pos_text.get_height() + mag_text.get_height() + pos_text.get_height() + potential_text.get_height()))
         else:
             hover_bg.blit(pos_text, (4, 4))
             hover_bg.blit(potential_text, (4, 4 + pos_text.get_height()))
@@ -488,12 +508,13 @@ while running:
                     editing_charge[4] = "+"
             elif is_editing_charge and done_btn_rect.collidepoint(event.pos):
                 is_editing_charge = False
+                editing_charge[0] = editing_charge[0].strip("+-*/")
                 if (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "+":
                     editing_charge[0] = 0.0
                 elif (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "-":
                     editing_charge[0] = -0.0
                 else:
-                    editing_charge[0] = float(editing_charge[4] + editing_charge[0])
+                    editing_charge[0] = float(editing_charge[4] + str(eval(editing_charge[0])))
                 if editing_charge[1] == "":
                     editing_charge[1] = 0
                 else:
@@ -554,6 +575,13 @@ while running:
                     if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
                         right_click_charge_index = -1-i
                         break
+
+            if charge_list_rect.collidepoint(event.pos):
+                if event.button == 4 and scroll_pos < 0:
+                    scroll_pos += 10
+                elif event.button == 5 and scroll_pos > -charge_details_surface.get_height() + charge_list_rect.height:
+                    scroll_pos -= 10
+                    
         if event.type == pygame.MOUSEBUTTONDOWN:
             if plus_btn_rect.collidepoint(event.pos):
                 is_plus_btn_pressed = True
@@ -576,15 +604,17 @@ while running:
                 if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
                     selected_charge = charge
                     break
+
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
                 is_editing_charge = False
+                editing_charge[0] = editing_charge[0].strip("+-*/")
                 if (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "+":
                     editing_charge[0] = 0.0
                 elif (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "-":
                     editing_charge[0] = -0.0
                 else:
-                    editing_charge[0] = float(editing_charge[4] + editing_charge[0])
+                    editing_charge[0] = float(editing_charge[4] + str(eval(editing_charge[0])))
                 if editing_charge[1] == "":
                     editing_charge[1] = 0
                 else:
@@ -604,8 +634,9 @@ while running:
                     charge_name += event.unicode
                 editing_charge[3] = charge_name
             elif is_editing_charge and is_mag_field_focused:
-                allowed_chars = (pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5,
-                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_PERIOD)
+                allowed_chars = (pygame.K_0, pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, 
+                                 pygame.K_6, pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_LEFTPAREN, pygame.K_RIGHTPAREN,
+                                 pygame.K_PERIOD, pygame.K_PLUS, pygame.K_MINUS, pygame.K_ASTERISK, pygame.K_SLASH)
                 charge_mag_str = editing_charge[0]
                 if event.key == pygame.K_BACKSPACE and len(charge_mag_str)>0:
                     charge_mag_str = charge_mag_str[:-1]

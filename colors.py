@@ -7,7 +7,7 @@ light_grey = (120, 120, 120)
 white = (255, 255, 255)
 cream = (255, 253, 208)
 lavender = (230, 230, 250)
-periwinkle = (153, 153, 255)
+prussian_blue = (47, 47, 125)
 dark_lavender = (89, 49, 120)
 light_red = (245, 99, 73)
 
