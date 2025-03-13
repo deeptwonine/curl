@@ -1,5 +1,9 @@
 # curl.py - a simple electric field visualiser
 
+# Copyright (C) 2025 Deepto Debnath, Subhradip Mondal
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import pygame
 from math import pi, sin, cos, fabs
 from colors import *
@@ -35,6 +39,7 @@ discrete_mode_btn_down = pygame.image.load('images/discrete_mode_btn_down.png').
 cont_mode_btn_down = pygame.image.load('images/cont_mode_btn_down.png').convert_alpha()
 play_surf_frame = pygame.image.load('images/play_surf_frame.png').convert_alpha()
 charge_list_frame = pygame.image.load('images/charge_list_frame.png').convert_alpha()
+charge_list_surface_filler = pygame.image.load('images/charge_list_surface_filler.png').convert_alpha()
 edit_charge_dialog_img = pygame.image.load('images/edit_charge_dialog.png')
 plus_mag_btn_up = pygame.image.load('images/plus_mag_btn_up.png').convert_alpha()
 minus_mag_btn_up = pygame.image.load('images/minus_mag_btn_up.png').convert_alpha()
@@ -250,31 +255,34 @@ while running:
 
     # display list of charges
     screen.blit(charge_list_frame, (5, 230))
-    charge_list_surface = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, CHARGE_LIST_SURF_HEIGHT))
-    charge_list_surface.fill(prussian_blue)
+    if len(charge_list) > 0:
+        charge_list_surface = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, CHARGE_LIST_SURF_HEIGHT))
+        charge_list_surface.fill(prussian_blue)
+        charge_details_surf_height = 0
+        charge_details_surf_list = []
+        for charge in charge_list:
+            name_text = write_text("\""+charge[3]+"\"", white)
+            charge_pos_text = write_text(str(tuple(charge[1:3])), white)
+            mag_text = write_text("Q = "+"{:.2e}".format(charge[0])+"C", light_red)
+            name_text = pygame.transform.scale(name_text, (name_text.get_width()*(CHARGE_LIST_TEXT_SIZE/name_text.get_height()), CHARGE_LIST_TEXT_SIZE))
+            charge_pos_text = pygame.transform.scale(charge_pos_text, (charge_pos_text.get_width()*(CHARGE_LIST_TEXT_SIZE/charge_pos_text.get_height()), CHARGE_LIST_TEXT_SIZE))
+            mag_text = pygame.transform.scale(mag_text, (mag_text.get_width()*(CHARGE_LIST_TEXT_SIZE/mag_text.get_height()), CHARGE_LIST_TEXT_SIZE))
+            charge_details_surf = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + 5))
+            charge_details_surf.fill(prussian_blue)
+            charge_details_surf.blit(name_text, (0, 0))
+            charge_details_surf.blit(charge_pos_text, (0, name_text.get_height()))
+            charge_details_surf.blit(mag_text, (0, charge_pos_text.get_height() + name_text.get_height()))
+            charge_details_surf_list.append(charge_details_surf)
+            charge_details_surf_height += charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + 5
+        charge_details_surface = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, charge_details_surf_height))
+        height_blitted = 0
+        for charge_details_surf in charge_details_surf_list: 
+            charge_details_surface.blit(charge_details_surf, (0, height_blitted))
+            height_blitted += charge_details_surf.get_height()
+        charge_list_surface.blit(charge_details_surface, (0, scroll_pos))
+    else:
+        charge_list_surface = charge_list_surface_filler
     charge_list_rect = charge_list_surface.get_rect(left=13, top=268)
-    charge_details_surf_height = 0
-    charge_details_surf_list = []
-    for charge in charge_list:
-        name_text = write_text("\""+charge[3]+"\"", white)
-        charge_pos_text = write_text(str(tuple(charge[1:3])), white)
-        mag_text = write_text("Q = "+"{:.2e}".format(charge[0])+"C", light_red)
-        name_text = pygame.transform.scale(name_text, (name_text.get_width()*(CHARGE_LIST_TEXT_SIZE/name_text.get_height()), CHARGE_LIST_TEXT_SIZE))
-        charge_pos_text = pygame.transform.scale(charge_pos_text, (charge_pos_text.get_width()*(CHARGE_LIST_TEXT_SIZE/charge_pos_text.get_height()), CHARGE_LIST_TEXT_SIZE))
-        mag_text = pygame.transform.scale(mag_text, (mag_text.get_width()*(CHARGE_LIST_TEXT_SIZE/mag_text.get_height()), CHARGE_LIST_TEXT_SIZE))
-        charge_details_surf = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + 5))
-        charge_details_surf.fill(prussian_blue)
-        charge_details_surf.blit(name_text, (0, 0))
-        charge_details_surf.blit(charge_pos_text, (0, name_text.get_height()))
-        charge_details_surf.blit(mag_text, (0, charge_pos_text.get_height() + name_text.get_height()))
-        charge_details_surf_list.append(charge_details_surf)
-        charge_details_surf_height += charge_pos_text.get_height() + name_text.get_height() + mag_text.get_height() + 5
-    charge_details_surface = pygame.surface.Surface((CHARGE_LIST_SURF_WIDTH, charge_details_surf_height))
-    height_blitted = 0
-    for charge_details_surf in charge_details_surf_list: 
-        charge_details_surface.blit(charge_details_surf, (0, height_blitted))
-        height_blitted += charge_details_surf.get_height()
-    charge_list_surface.blit(charge_details_surface, (0, scroll_pos))
     screen.blit(charge_list_surface, (13, 268))
 
     # display play space as per selected mode
@@ -346,7 +354,8 @@ while running:
         elif charge[0] < 0:
             play_surface.blit(minus_q, [charge[1]-minus_q.get_width()/2, charge[2]-minus_q.get_height()/2])
     
-    # display potential and field value at each position
+    # display potential and field value at each position;
+    # also show charge details if hovered on a charge
     if play_rect.collidepoint(pygame.mouse.get_pos()) and right_click_charge_index == None and not is_editing_charge:
         name_pos_text = None; name_text = None; mag_text = None
         for charge in charge_list[::-1]:
@@ -576,10 +585,10 @@ while running:
                         right_click_charge_index = -1-i
                         break
 
-            if charge_list_rect.collidepoint(event.pos):
-                if event.button == 4 and scroll_pos < 0:
+            if charge_list_rect.collidepoint(event.pos) and len(charge_list) > 0:
+                if event.button == 4 and scroll_pos < 0: # check for mouse scroll up
                     scroll_pos += 10
-                elif event.button == 5 and scroll_pos > -charge_details_surface.get_height() + charge_list_rect.height:
+                elif event.button == 5 and scroll_pos > -charge_details_surface.get_height() + charge_list_rect.height: # check for mouse scroll down
                     scroll_pos -= 10
                     
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -600,13 +609,13 @@ while running:
             if right_click_charge_index != None and edit_text_rect.collidepoint(event.pos):
                 is_edit_btn_pressed = True
             
-            for charge in charge_list[::-1]:
-                if pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
+            for charge in charge_list[::-1]: # handle charge drag and drop
+                if not right_click_charge_index and pygame.Rect(168+charge[1]-plus_q.get_width()/2, 13+charge[2]-plus_q.get_height()/2, plus_q.get_width(), plus_q.get_height()).collidepoint(event.pos):
                     selected_charge = charge
                     break
 
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN:
+            if event.key == pygame.K_RETURN and is_editing_charge:
                 is_editing_charge = False
                 editing_charge[0] = editing_charge[0].strip("+-*/")
                 if (editing_charge[0] == "" or editing_charge[0] == ".") and editing_charge[4] == "+":
@@ -671,7 +680,7 @@ while running:
         else:
             selected_charge = None
     
-    # blit stuff to the screen and flip it #5;5,28,51
+    # blit stuff to the screen and flip it 
     pygame.display.flip()
 
 # quit when out of game execution loop

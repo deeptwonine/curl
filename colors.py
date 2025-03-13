@@ -1,5 +1,9 @@
 # colors.py - rgb values for colors 
 
+# Copyright (C) 2025 Deepto Debnath, Subhradip Mondal
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 # common colors
 black = (0, 0, 0)
 grey = (45, 45, 45)

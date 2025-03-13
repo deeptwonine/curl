@@ -1,6 +1,10 @@
 # electrostatics.py - functions to calculate values 
 # useful in electrostatics
 
+# Copyright (C) 2025 Deepto Debnath, Subhradip Mondal
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 # calculates potential at a point P (x, y) 
 # due to charges in charge_list
 def calc_potential(charge_list, P):
